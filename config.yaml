@@ -1,0 +1,101 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PCAP FORENSIC ANALYSIS AGENT - Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Active model selection
+current_model: "gpt4o"
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Model Configurations
+# ─────────────────────────────────────────────────────────────────────────────────
+models:
+  claude_sonnet:
+    name: "claude-sonnet-4-20250514"
+    provider: "anthropic"
+    context_window: 200000
+    safety_buffer: 8000
+    max_output_tokens: 4096
+
+  gpt4o:
+    name: "gpt-4o"
+    provider: "openai"
+    context_window: 128000
+    safety_buffer: 4000
+    max_output_tokens: 4096
+
+  gpt4o_mini:
+    name: "gpt-4o-mini"
+    provider: "openai"
+    context_window: 128000
+    safety_buffer: 2000
+    max_output_tokens: 4096
+
+  local_llama:
+    name: "meta-llama-3-70b-instruct"
+    provider: "vllm_api"
+    api_base: "http://localhost:8000/v1"
+    context_window: 8192
+    safety_buffer: 1000
+    max_output_tokens: 2048
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Agent Behavior Settings
+# ─────────────────────────────────────────────────────────────────────────────────
+agent:
+  # Interaction mode: "autonomous" | "co-pilot" | "manual"
+  mode: "co-pilot"
+  
+  # Maximum iterations before forcing a conclusion
+  max_iterations: 50
+  
+  # Auto-approve low-risk operations
+  auto_approve_safe_ops: true
+  
+  # Show raw tshark commands in UI
+  show_commands: true
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Output Processing
+# ─────────────────────────────────────────────────────────────────────────────────
+output:
+  # Lines to show before truncation
+  truncate_threshold: 100
+  
+  # Lines to include in truncated output
+  truncate_preview_lines: 50
+  
+  # Store raw outputs to disk
+  save_raw_outputs: true
+  
+  # Directory for case files and logs
+  cases_directory: "./cases"
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Tshark Settings
+# ─────────────────────────────────────────────────────────────────────────────────
+tshark:
+  # Path to tshark executable (auto-detect if empty)
+  path: ""
+  
+  # Default timeout for commands (seconds)
+  timeout: 120
+  
+  # Maximum packets to process per query (0 = unlimited)
+  max_packets: 0
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# UI Settings
+# ─────────────────────────────────────────────────────────────────────────────────
+ui:
+  # Theme: "cyber" | "minimal" | "hacker"
+  theme: "cyber"
+  
+  # Show context usage meter
+  show_context_meter: true
+  
+  # Enable syntax highlighting for IPs, ports, etc.
+  syntax_highlighting: true
+  
+  # Animation speed for spinners (ms)
+  spinner_speed: 80
+

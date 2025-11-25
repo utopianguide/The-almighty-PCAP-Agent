@@ -1,0 +1,23 @@
+# PCAP Forensic Analysis Agent - Dependencies
+# Core LLM & API
+openai>=1.12.0
+anthropic>=0.18.0
+httpx>=0.27.0
+
+# Terminal UI
+rich>=13.7.0
+prompt-toolkit>=3.0.43
+
+# Data handling
+pydantic>=2.6.0
+pyyaml>=6.0.1
+
+# Utilities
+python-dotenv>=1.0.1
+tiktoken>=0.6.0
+
+# Optional: Local LLM support
+# vllm>=0.3.0
+# llama-cpp-python>=0.2.0
+
+

@@ -1,0 +1,41 @@
+# Environment
+.env
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Cases and logs (may contain sensitive data)
+cases/
+*.pcap
+*.pcapng
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+
