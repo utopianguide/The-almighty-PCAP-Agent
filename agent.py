@@ -16,6 +16,9 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
+
 from src.state_manager import StateManager
 from src.toolbox import Toolbox, TsharkNotFoundError
 from src.llm_interface import LLMInterface, LLMResponse

@@ -27,7 +27,7 @@ def load_config(config_path: str = "config.yaml") -> dict:
         # Return default config if file doesn't exist
         return get_default_config()
     
-    with open(config_file, "r") as f:
+    with open(config_file, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
     
     return config
@@ -74,7 +74,7 @@ def get_default_config() -> dict:
 
 def save_config(config: dict, config_path: str = "config.yaml"):
     """Save configuration to YAML file."""
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
 

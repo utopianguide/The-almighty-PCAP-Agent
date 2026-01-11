@@ -165,9 +165,62 @@ class Toolbox:
         Get basic information about the PCAP file.
         Shows file size, packet count, capture duration, etc.
         """
-        return self._run_tshark(
-            ["-r", self.pcap_file, "-q", "-z", "capinfos,*"],
+        # Get packet count and time info using a simple read
+        result = self._run_tshark(
+            ["-r", self.pcap_file, "-T", "fields", 
+             "-e", "frame.number", "-e", "frame.time_epoch", "-e", "frame.len"],
             "Getting PCAP file information"
+        )
+        
+        if not result.success:
+            return result
+        
+        # Parse the output to build summary
+        lines = [l for l in result.output.strip().split("\n") if l.strip()]
+        if not lines:
+            return ToolResult(
+                success=True,
+                output="PCAP file appears to be empty or unreadable.",
+                command=result.command
+            )
+        
+        packet_count = len(lines)
+        total_bytes = 0
+        first_time = None
+        last_time = None
+        
+        for line in lines:
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                try:
+                    timestamp = float(parts[1])
+                    size = int(parts[2])
+                    total_bytes += size
+                    if first_time is None:
+                        first_time = timestamp
+                    last_time = timestamp
+                except (ValueError, IndexError):
+                    pass
+        
+        duration = (last_time - first_time) if (first_time and last_time) else 0
+        
+        import os
+        file_size = os.path.getsize(self.pcap_file)
+        
+        summary = f"""===================================================================
+PCAP File Information
+===================================================================
+File: {self.pcap_file}
+File Size: {file_size:,} bytes ({file_size / 1024:.1f} KB)
+Packets: {packet_count:,}
+Capture Data: {total_bytes:,} bytes
+Duration: {duration:.2f} seconds
+==================================================================="""
+        
+        return ToolResult(
+            success=True,
+            output=summary,
+            command=result.command
         )
     
     def get_protocol_hierarchy(self) -> ToolResult:

@@ -43,6 +43,7 @@ class CaseFile:
     case_id: str
     pcap_file: str
     analyst: str = "Analyst"
+    title: Optional[str] = None  # Auto-generated conversation title
     start_time: str = field(default_factory=lambda: datetime.now().isoformat())
     status: str = "active"  # "active" | "paused" | "completed"
     timeline: list = field(default_factory=list)
@@ -253,6 +254,15 @@ class StateManager:
         self.case.status = "completed"
         self._save_case()
     
+    def set_title(self, title: str):
+        """Set the conversation title."""
+        self.case.title = title
+        self._save_case()
+    
+    def get_title(self) -> Optional[str]:
+        """Get the conversation title."""
+        return self.case.title
+    
     def get_context(self, model_config: dict) -> list[dict]:
         """
         Build context for LLM, respecting token limits.
@@ -284,9 +294,11 @@ class StateManager:
             
             msg = {"role": turn_data.role, "content": turn_data.content}
             
-            # Add thought process for agent messages
-            if turn_data.role == "agent" and turn_data.thought:
-                msg["content"] = f"[Thought: {turn_data.thought}]\n{turn_data.content}"
+            # Add thought process for agent messages and convert role to 'assistant'
+            if turn_data.role == "agent":
+                msg["role"] = "assistant"
+                if turn_data.thought:
+                    msg["content"] = f"[Thought: {turn_data.thought}]\n{turn_data.content}"
             
             # Convert tool role to appropriate format
             if turn_data.role == "tool":
@@ -342,9 +354,9 @@ class StateManager:
         available = max_tokens - safety_buffer
         
         return {
-            "used": self.current_context_tokens,
-            "available": available,
-            "max": max_tokens,
+            "used_tokens": self.current_context_tokens,
+            "max_tokens": available,
+            "total_context": max_tokens,
             "percentage": (self.current_context_tokens / available) * 100 if available > 0 else 0
         }
     
@@ -388,6 +400,7 @@ class StateManager:
                     cases.append({
                         "case_id": data.get("case_id"),
                         "pcap_file": data.get("pcap_file"),
+                        "title": data.get("title"),
                         "status": data.get("status"),
                         "start_time": data.get("start_time"),
                         "turns": len(data.get("timeline", []))

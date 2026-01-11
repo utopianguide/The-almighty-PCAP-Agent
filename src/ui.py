@@ -270,10 +270,17 @@ class ForensicUI:
         text.append(finding, style=color)
         self.console.print(text)
     
-    def print_final_report(self, report: str):
+    def print_final_report(self, report):
         """Display the final investigation report."""
+        # Handle case where report is a dict (some models return structured data)
+        if isinstance(report, dict):
+            import json
+            report = json.dumps(report, indent=2)
+        elif report is None:
+            report = "No report generated."
+        
         panel = Panel(
-            Markdown(report),
+            Markdown(str(report)),
             title="[cyber.header]═══ FINAL INVESTIGATION REPORT ═══[/]",
             border_style="cyber.success",
             padding=(1, 2)

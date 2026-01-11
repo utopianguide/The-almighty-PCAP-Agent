@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCAP Forensics - AI-Powered Network Analysis</title>
+    <meta name="description" content="Autonomous AI-powered post-incident forensic analysis of network captures">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Markdown & Syntax Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="cyber-grid"></div>
+    
+    <!-- Main Application -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12h18M3 6h18M3 18h18"/>
+                    </svg>
+                </button>
+                <div class="logo">
+                    <span class="logo-icon">🔬</span>
+                    <span class="logo-text">PCAP <span class="accent">FORENSICS</span></span>
+                </div>
+                <div class="session-badge" id="sessionBadge">
+                    <span class="badge-label">No Active Session</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="context-meter" id="contextMeter">
+                    <span class="meter-label">Context</span>
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="contextFill" style="width: 0%"></div>
+                    </div>
+                    <span class="meter-value" id="contextValue">0%</span>
+                </div>
+                <div class="model-selector" id="modelSelector">
+                    <button class="model-btn" id="modelBtn">
+                        <span class="model-icon">🤖</span>
+                        <span class="model-name" id="currentModelName">Loading...</span>
+                        <svg class="model-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </button>
+                    <div class="model-dropdown" id="modelDropdown">
+                        <!-- Models will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content" id="mainContent">
+            <!-- Left Sidebar -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <button class="new-chat-btn" id="newChatBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        <span>New Analysis</span>
+                    </button>
+                </div>
+                <div class="sidebar-section">
+                    <h3 class="section-title">
+                        <span class="section-icon">💬</span> Recent
+                    </h3>
+                    <div class="cases-list" id="casesList">
+                        <div class="empty-state">No conversations yet</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Chat Area -->
+            <div class="chat-container">
+                <!-- Welcome Screen (shown when no session) -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-content">
+                        <div class="welcome-icon">🔬</div>
+                        <h1>PCAP Forensic Analysis</h1>
+                        <p class="welcome-subtitle">AI-Powered Post-Incident Network Forensics</p>
+                        
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-content">
+                                <span class="upload-icon">📂</span>
+                                <p class="upload-text">Drag & drop a PCAP file here</p>
+                                <p class="upload-hint">or click to browse</p>
+                                <input type="file" id="fileInput" accept=".pcap,.pcapng,.cap" hidden>
+                            </div>
+                            <div class="upload-progress" id="uploadProgress">
+                                <div class="spinner"></div>
+                                <span>Uploading...</span>
+                            </div>
+                        </div>
+
+                        <div class="mode-selector">
+                            <label class="mode-option">
+                                <input type="radio" name="mode" value="co-pilot" checked>
+                                <span class="mode-card">
+                                    <span class="mode-icon">💬</span>
+                                    <span class="mode-name">Chat</span>
+                                    <span class="mode-desc">Ask questions naturally</span>
+                                </span>
+                            </label>
+                            <label class="mode-option">
+                                <input type="radio" name="mode" value="autonomous">
+                                <span class="mode-card">
+                                    <span class="mode-icon">⚡</span>
+                                    <span class="mode-name">Auto-Analyze</span>
+                                    <span class="mode-desc">Full investigation</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Messages -->
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Messages will be dynamically inserted here -->
+                </div>
+
+                <!-- Thinking Indicator -->
+                <div class="thinking-indicator" id="thinkingIndicator">
+                    <div class="thinking-content">
+                        <div class="thinking-spinner"></div>
+                        <span class="thinking-text" id="thinkingText">Thinking...</span>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-area" id="inputArea">
+                    <div class="input-container">
+                        <button class="action-btn" id="autonomousBtn" title="Start Full Analysis">
+                            <span>⚡</span>
+                        </button>
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Ask about this PCAP file..."
+                            disabled
+                            rows="1"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Final Report Modal -->
+    <div class="modal" id="reportModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔍 Investigation Report</h2>
+                <button class="modal-close" id="closeReport">&times;</button>
+            </div>
+            <div class="modal-body markdown-body" id="reportContent">
+                <!-- Report content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="copyReport">📋 Copy Report</button>
+                <button class="btn btn-secondary" id="downloadReport">💾 Download</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

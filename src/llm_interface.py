@@ -60,29 +60,36 @@ class OpenAIProvider(BaseLLMProvider):
         self.client = OpenAI(api_key=api_key)
         self.model = config.get("name", "gpt-4o")
         self.max_tokens = config.get("max_output_tokens", 4096)
+        self.temperature = config.get("temperature")  # None means use API default
     
     def generate(self, messages: list[dict], system_prompt: str) -> str:
         full_messages = [{"role": "system", "content": system_prompt}] + messages
         
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=full_messages,
-            max_tokens=self.max_tokens,
-            temperature=0.3
-        )
+        kwargs = {
+            "model": self.model,
+            "messages": full_messages,
+            "max_completion_tokens": self.max_tokens,
+        }
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
+        
+        response = self.client.chat.completions.create(**kwargs)
         
         return response.choices[0].message.content
     
     def stream(self, messages: list[dict], system_prompt: str) -> Generator[str, None, None]:
         full_messages = [{"role": "system", "content": system_prompt}] + messages
         
-        stream = self.client.chat.completions.create(
-            model=self.model,
-            messages=full_messages,
-            max_tokens=self.max_tokens,
-            temperature=0.3,
-            stream=True
-        )
+        kwargs = {
+            "model": self.model,
+            "messages": full_messages,
+            "max_completion_tokens": self.max_tokens,
+            "stream": True,
+        }
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
+        
+        stream = self.client.chat.completions.create(**kwargs)
         
         for chunk in stream:
             if chunk.choices[0].delta.content:
@@ -241,46 +248,90 @@ class LLMInterface:
     Handles provider selection, response parsing, and structured output.
     """
     
-    SYSTEM_PROMPT_TEMPLATE = '''You are an expert Cyber Security Forensic Analyst. You are investigating a PCAP network capture file to identify security incidents.
-
-OBJECTIVE: Analyze the PCAP file systematically and identify the root cause of any security incidents. Work autonomously, making intelligent decisions about what to investigate next.
+    # System prompt for tool-calling mode (internal agent loop)
+    TOOL_CALL_PROMPT = '''You are an expert Cyber Security Forensic Analyst investigating a PCAP network capture file.
 
 AVAILABLE TOOLS:
 {tools}
 
-RESPONSE FORMAT:
-You MUST respond in valid JSON format with the following structure:
+CRITICAL RULES:
+1. You MUST call tools to get data. You have NO prior knowledge of this PCAP file.
+2. If this is your FIRST response, you MUST call a tool (start with get_pcap_info or get_protocol_hierarchy).
+3. NEVER set ready_to_respond=true unless you have ACTUAL tool results to reference.
+4. If you haven't called any tools yet, you are NOT ready to respond.
+
+RESPONSE FORMAT - Always respond with ONLY valid JSON (no other text):
 {{
-    "thought": "Your reasoning about what you've learned and what to do next",
-    "analysis": "A clear summary of your findings for display to the analyst",
-    "tool_name": "name_of_tool_to_execute (or null if no tool needed)",
-    "tool_args": {{}},  // Arguments for the tool (empty object if no args)
-    "request_full_context": false,  // Set to true if you need to see full truncated output
-    "context_step_id": null,  // Step ID to load full context from (if request_full_context is true)
-    "status": "continue",  // "continue" | "finished" | "need_input"
-    "final_report": null,  // Populate only when status is "finished"
-    "confidence": 0.8  // Your confidence in current findings (0.0 to 1.0)
+    "thought": "Brief reasoning",
+    "tool_name": "tool_to_call",
+    "tool_args": {{}},
+    "ready_to_respond": false
 }}
 
-INVESTIGATION METHODOLOGY:
-1. Start with high-level overview (protocol hierarchy, conversations)
-2. Identify anomalies (unusual traffic patterns, suspicious IPs, high volumes)
-3. Drill down into suspicious activity (specific protocols, conversations)
-4. Follow the evidence chain (timeline of attack, lateral movement)
-5. Document findings and conclude with a final report
+When you have gathered enough data from tools:
+{{
+    "thought": "I have analyzed the data and can now answer",
+    "tool_name": null,
+    "tool_args": null,
+    "ready_to_respond": true
+}}
 
-ANALYSIS GUIDELINES:
-- Look for signs of: reconnaissance, exploitation, C2 communication, data exfiltration
-- Pay attention to: unusual ports, high data volumes, suspicious domains, failed auth attempts
-- Consider attack patterns: SQL injection, brute force, malware callbacks, tunneling
-- When output is truncated, decide if you need full context or if summary is sufficient
+FIRST RESPONSE STRATEGY:
+- General questions → call get_pcap_info AND get_protocol_hierarchy
+- Questions about IPs/hosts → call get_ip_conversations
+- Questions about HTTP → call get_http_requests
+- Questions about credentials → call get_credentials or get_ftp_commands
+- Questions about attacks → call get_expert_info and get_suspicious_ports'''
 
-When you have identified the incident with reasonable confidence, set status to "finished" and provide a comprehensive final_report including:
-- Attack type and description
-- Attacker IP(s) and victim IP(s)
-- Timeline of events
-- Impact assessment
-- Recommended remediation'''
+    # System prompt for synthesis mode (generating the final user-facing response)
+    SYNTHESIS_PROMPT = '''You are a friendly, expert Cyber Security Forensic Analyst. Based on your analysis of the PCAP data, provide a clear, helpful response to the user.
+
+CONTEXT - Here is what you discovered from your analysis:
+{tool_results}
+
+USER'S QUESTION:
+{user_question}
+
+INSTRUCTIONS:
+- Respond naturally in markdown format - this will be rendered in a chat interface
+- Be conversational but professional
+- Highlight key findings with **bold** or bullet points
+- If you found security issues, clearly explain the severity
+- Use technical terms but explain them when helpful
+- Include relevant IPs, ports, and protocols when discussing findings
+- If data was exfiltrated or credentials were exposed, make that very clear
+- End with a follow-up question or suggestion when appropriate
+
+Remember: You're having a conversation, not writing a formal report. Be helpful and direct.'''
+
+    # System prompt for generating conversation titles
+    TITLE_PROMPT = '''Generate a very short title (3-6 words max) for this PCAP analysis conversation.
+The title should capture the main topic or finding.
+
+User's question: {user_question}
+Agent's response summary: {response_summary}
+
+Respond with ONLY the title text, nothing else. Examples:
+- "FTP Credential Breach Analysis"
+- "HTTP Traffic Investigation"
+- "DNS Tunneling Detection"
+- "Suspicious Port Scan Review"'''
+
+    # System prompt for final report generation
+    REPORT_PROMPT = '''You are a Cyber Security Forensic Analyst. Generate a comprehensive investigation report based on your analysis.
+
+ANALYSIS RESULTS:
+{tool_results}
+
+Generate a detailed markdown report with these sections:
+1. **Executive Summary** - Brief overview of findings
+2. **Attack Timeline** - Chronological sequence of events  
+3. **Technical Findings** - Detailed technical analysis
+4. **Indicators of Compromise (IOCs)** - IPs, domains, hashes, etc.
+5. **Impact Assessment** - What was affected/exposed
+6. **Recommendations** - Remediation steps
+
+Use proper markdown formatting with headers, bullet points, and code blocks where appropriate.'''
     
     def __init__(self, config: dict):
         self.config = config
@@ -312,8 +363,8 @@ When you have identified the incident with reasonable confidence, set status to 
         self.model_config = self.config["models"][model_name]
         self.provider = self._create_provider()
     
-    def _build_system_prompt(self, tools: dict) -> str:
-        """Build the system prompt with available tools."""
+    def _build_tool_prompt(self, tools: dict) -> str:
+        """Build the tool-calling system prompt."""
         tools_desc = []
         for name, info in tools.items():
             args_str = ", ".join(f"{k}: {v}" for k, v in info.get("args", {}).items())
@@ -321,16 +372,42 @@ When you have identified the incident with reasonable confidence, set status to 
             tools_desc.append(f"  - {name}{args_str}: {info['description']}")
         
         tools_section = "\n".join(tools_desc)
-        return self.SYSTEM_PROMPT_TEMPLATE.format(tools=tools_section)
+        return self.TOOL_CALL_PROMPT.format(tools=tools_section)
     
-    def _parse_response(self, raw_content: str) -> LLMResponse:
-        """Parse LLM response into structured format."""
+    def _parse_tool_response(self, raw_content: str) -> LLMResponse:
+        """Parse LLM response for tool calls."""
         response = LLMResponse(raw_content=raw_content)
         
-        # Try to extract JSON from the response
         try:
-            # Look for JSON block in the response
-            json_match = re.search(r'\{[\s\S]*\}', raw_content)
+            # Look for JSON in the response
+            json_match = re.search(r'\{(?:[^{}]|\{[^{}]*\})*\}', raw_content, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+                
+                response.thought = data.get("thought")
+                response.tool_name = data.get("tool_name")
+                response.tool_args = data.get("tool_args", {})
+                
+                # Check if ready to respond (no more tools needed)
+                if data.get("ready_to_respond", False) or response.tool_name is None:
+                    response.status = "ready"
+                else:
+                    response.status = "continue"
+            else:
+                # No JSON found - assume ready to respond
+                response.status = "ready"
+                
+        except json.JSONDecodeError:
+            response.status = "ready"
+        
+        return response
+    
+    def _parse_response(self, raw_content: str) -> LLMResponse:
+        """Parse LLM response into structured format (legacy support)."""
+        response = LLMResponse(raw_content=raw_content)
+        
+        try:
+            json_match = re.search(r'\{(?:[^{}]|\{[^{}]*\})*\}', raw_content, re.DOTALL)
             if json_match:
                 data = json.loads(json_match.group())
                 
@@ -344,24 +421,104 @@ When you have identified the incident with reasonable confidence, set status to 
                 response.final_report = data.get("final_report")
                 response.confidence = data.get("confidence", 0.8)
             else:
-                response.parse_error = "No JSON found in response"
-        except json.JSONDecodeError as e:
-            response.parse_error = f"JSON parse error: {str(e)}"
+                response.analysis = raw_content.strip()
+                response.status = "continue"
+        except json.JSONDecodeError:
+            response.analysis = raw_content.strip()
+            response.status = "continue"
         
         return response
     
-    def generate(self, messages: list[dict], tools: dict) -> LLMResponse:
+    def generate_tool_call(self, messages: list[dict], tools: dict) -> LLMResponse:
         """
-        Generate a response from the LLM.
+        Generate a tool call decision from the LLM.
+        
+        Returns a response indicating which tool to call or if ready to respond.
+        """
+        system_prompt = self._build_tool_prompt(tools)
+        
+        try:
+            raw_content = self.provider.generate(messages, system_prompt)
+            return self._parse_tool_response(raw_content)
+        except Exception as e:
+            return LLMResponse(
+                raw_content="",
+                parse_error=f"LLM error: {str(e)}",
+                status="ready"
+            )
+    
+    def generate_synthesis(
+        self, 
+        user_question: str, 
+        tool_results: list[dict],
+        is_final_report: bool = False
+    ) -> str:
+        """
+        Generate a synthesized response based on tool results.
         
         Args:
-            messages: Conversation history
-            tools: Available tools dictionary
+            user_question: The original user question
+            tool_results: List of {tool_name, result} dicts
+            is_final_report: If True, generates a formal report
         
         Returns:
-            Structured LLMResponse
+            Markdown-formatted response string
         """
-        system_prompt = self._build_system_prompt(tools)
+        # Format tool results
+        results_text = ""
+        for i, result in enumerate(tool_results, 1):
+            results_text += f"\n### Tool {i}: {result['tool_name']}\n"
+            results_text += f"```\n{result['result'][:2000]}\n```\n"
+        
+        if is_final_report:
+            prompt = self.REPORT_PROMPT.format(tool_results=results_text)
+        else:
+            prompt = self.SYNTHESIS_PROMPT.format(
+                tool_results=results_text,
+                user_question=user_question
+            )
+        
+        messages = [{"role": "user", "content": "Generate the response."}]
+        
+        try:
+            return self.provider.generate(messages, prompt)
+        except Exception as e:
+            return f"Error generating response: {str(e)}"
+    
+    def generate_title(self, user_question: str, response_summary: str) -> str:
+        """
+        Generate a short title for the conversation.
+        
+        Args:
+            user_question: The user's first question
+            response_summary: Summary of the agent's response
+        
+        Returns:
+            A short title string (3-6 words)
+        """
+        prompt = self.TITLE_PROMPT.format(
+            user_question=user_question[:200],
+            response_summary=response_summary[:300]
+        )
+        
+        messages = [{"role": "user", "content": "Generate the title."}]
+        
+        try:
+            title = self.provider.generate(messages, prompt)
+            # Clean up the title - remove quotes, extra whitespace, etc.
+            title = title.strip().strip('"\'').strip()
+            # Limit length
+            if len(title) > 50:
+                title = title[:47] + "..."
+            return title
+        except Exception as e:
+            return "PCAP Analysis"
+    
+    def generate(self, messages: list[dict], tools: dict) -> LLMResponse:
+        """
+        Generate a response from the LLM (legacy method for compatibility).
+        """
+        system_prompt = self._build_tool_prompt(tools)
         
         try:
             raw_content = self.provider.generate(messages, system_prompt)
@@ -376,10 +533,8 @@ When you have identified the incident with reasonable confidence, set status to 
     def stream_generate(self, messages: list[dict], tools: dict) -> Generator[tuple[str, Optional[LLMResponse]], None, None]:
         """
         Stream response from LLM, yielding tokens and final parsed response.
-        
-        Yields tuples of (token, response) where response is only set on final yield.
         """
-        system_prompt = self._build_system_prompt(tools)
+        system_prompt = self._build_tool_prompt(tools)
         full_content = ""
         
         try:
@@ -387,7 +542,6 @@ When you have identified the incident with reasonable confidence, set status to 
                 full_content += token
                 yield (token, None)
             
-            # Final yield with parsed response
             response = self._parse_response(full_content)
             yield ("", response)
         except Exception as e:
@@ -406,4 +560,3 @@ When you have identified the incident with reasonable confidence, set status to 
             "context_window": self.model_config.get("context_window"),
             "safety_buffer": self.model_config.get("safety_buffer")
         }
-
