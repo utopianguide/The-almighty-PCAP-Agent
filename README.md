@@ -1,212 +1,243 @@
+<div align="center">
+
 # 🔬 PCAP Forensic Analysis Agent
 
-> **Autonomous AI-powered Post-Incident Forensic Analysis of Network Captures**
+**Drop a `.pcap`. Ask a question. Get a full security investigation.**
 
-An intelligent agent that analyzes PCAP files to identify security incidents, using LLM-powered reasoning combined with Tshark analysis tools.
+*An autonomous AI agent that thinks like a senior SOC analyst — powered by GPT-4o, Claude, or your own local LLM.*
 
-![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
-![License MIT](https://img.shields.io/badge/license-MIT-green.svg)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Claude-orange?style=for-the-badge)](https://anthropic.com)
+[![Flask](https://img.shields.io/badge/Flask-Web_UI-black?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
 
----
-
-## 🎯 Overview
-
-This agent acts as a **Junior Security Analyst** that you can hand a PCAP file and say "Tell me what happened." It will:
-
-1. **Systematically analyze** the network capture using Tshark
-2. **Identify anomalies** and suspicious patterns
-3. **Investigate** potential threats autonomously
-4. **Generate** a comprehensive incident report
-
-### Key Features
-
-- 🤖 **Autonomous Investigation** - Agent decides what to analyze next
-- 🧠 **Smart Context Management** - Handles large outputs with intelligent summarization
-- 💾 **Persistent Case Files** - Save and resume investigations
-- 🔄 **Hot-swap Models** - Switch between GPT-4, Claude, or local LLMs
-- 🎨 **Cyber-themed UI** - Beautiful terminal interface with Rich
-- 👤 **Human-in-the-Loop** - Approve, reject, or modify agent actions
+</div>
 
 ---
 
-## 📋 Prerequisites
+## 🧠 What Is This?
 
-- **Python 3.10+**
-- **Wireshark/Tshark** installed and in PATH
-- **API Key** for OpenAI or Anthropic (or local LLM setup)
+Network forensics is slow, manual, and requires deep expertise. You open Wireshark, stare at 50,000 packets, and hope you notice the right anomaly.
 
-### Install Tshark
+**This agent does that for you — autonomously.**
 
-```bash
-# Windows: Download from https://www.wireshark.org/download.html
+Hand it a PCAP file. It will systematically investigate using real Tshark commands, reason about what it finds, follow suspicious threads, and deliver a structured incident report — all in natural language.
 
-# Linux (Debian/Ubuntu)
-sudo apt install tshark
+> *"Tell me what happened in this capture."*  
+> Ten seconds later: *"FTP brute force detected. 5,000+ failed logins from 192.168.1.105. Successful auth at 10:47. 500MB exfiltrated to external IP."*
 
-# macOS
-brew install wireshark
+---
+
+## ✨ Why This Is Different
+
+Most "AI + security" demos slap an LLM on top of a static dataset. This agent **actually runs forensic tools in real time**:
+
+| Feature | This Agent |
+|---------|-----------|
+| 🔎 **Real Tshark Analysis** | 20+ live forensic tools — not hardcoded outputs |
+| 🤖 **Autonomous Investigation** | Agent decides what to query next, follows anomalies |
+| 🌐 **Dual Interface** | Beautiful Web UI *and* a rich terminal CLI |
+| 🔄 **Hot-swap LLMs** | Switch between GPT-4o, Claude, or local vLLM mid-session |
+| 💾 **Persistent Cases** | Save, pause, and resume any investigation |
+| 🧩 **Human-in-the-Loop** | Approve, reject, or redirect agent actions in co-pilot mode |
+| ⚡ **SSE Streaming** | Real-time tool execution updates in the browser |
+| 🔒 **No Shell Injection** | All Tshark commands are fully parameterized |
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Interfaces                           │
+│   ┌──────────────────┐    ┌──────────────────────────┐  │
+│   │  CLI (agent.py)  │    │ Web UI (web_server.py)   │  │
+│   │  Rich terminal   │    │ Flask + SSE streaming    │  │
+│   └────────┬─────────┘    └─────────┬────────────────┘  │
+└────────────┼──────────────────────┼───────────────────┘
+             │                      │
+             ▼                      ▼
+┌─────────────────────────────────────────────────────────┐
+│                   ForensicAgent Core                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐  │
+│  │ LLMInterface │  │ StateManager │  │   Toolbox     │  │
+│  │ (Brain)      │  │ (Memory)     │  │ (20+ Tools)   │  │
+│  │ GPT-4o       │  │ Case files   │  │ Tshark wraps  │  │
+│  │ Claude       │  │ Timeline     │  │               │  │
+│  │ vLLM         │  │ Findings     │  │               │  │
+│  └──────────────┘  └──────────────┘  └───────────────┘  │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Clone and Setup
+### Prerequisites
+
+- Python 3.10+
+- **Wireshark/Tshark** installed and in PATH
+- API key for OpenAI or Anthropic (or a local vLLM server)
 
 ```bash
-# Clone the repository
+# Install Tshark
+# Windows: https://www.wireshark.org/download.html
+sudo apt install tshark       # Ubuntu/Debian
+brew install wireshark         # macOS
+```
+
+### Installation
+
+```bash
+git clone https://github.com/YOUR_USERNAME/NoFund_AI_Cursor_Opus
 cd NoFund_AI_Cursor_Opus
 
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Linux/macOS
-# or
-.\venv\Scripts\activate  # Windows
+source venv/bin/activate       # Windows: .\venv\Scripts\activate
 
-# Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. Configure API Keys
-
-```bash
-# Copy example environment file
 cp .env.example .env
-
-# Edit .env with your API keys
-# OPENAI_API_KEY=sk-...
-# or
-# ANTHROPIC_API_KEY=sk-ant-...
+# Edit .env and add your API key(s)
 ```
 
-### 3. Run the Agent
+### Launch (Web UI — Recommended)
 
 ```bash
-# Basic usage (co-pilot mode)
+python web_server.py
+# Open http://localhost:5000
+```
+
+### Launch (Terminal CLI)
+
+```bash
+# Co-pilot mode — you guide, agent assists
 python agent.py --pcap capture.pcap
 
-# Autonomous mode (fully automatic)
+# Autonomous mode — fully automatic investigation
 python agent.py --pcap capture.pcap --mode autonomous
 
 # Resume a previous investigation
 python agent.py --resume case_capture_20231027_100000
 
-# List saved cases
+# List all saved cases
 python agent.py --list-cases
 ```
 
 ---
 
-## 🎮 Usage Modes
+## 🌐 Web Interface
 
-### Co-Pilot Mode (Default)
-You guide the investigation, agent assists with analysis.
-```bash
-python agent.py --pcap file.pcap --mode co-pilot
-```
+The web interface gives you a **ChatGPT-style experience** for PCAP analysis:
 
-### Autonomous Mode
-Agent conducts full investigation independently.
+- 📤 Drag-and-drop file upload
+- 💬 Conversational Q&A about your capture
+- 🔍 Live "searching..." indicators as tools execute
+- 📋 Collapsible tool output sources
+- 🚀 One-click autonomous analysis
+- 📂 Case history and resume functionality
+
 ```bash
-python agent.py --pcap file.pcap --mode autonomous
+python web_server.py
+# → http://localhost:5000
 ```
 
 ---
 
-## 💬 Interactive Commands
+## 🛠️ Forensic Tool Arsenal
+
+The agent has access to **20+ specialized forensic tools** wrapping Tshark:
+
+### 📊 Overview
+| Tool | Description |
+|------|-------------|
+| `get_pcap_info` | File statistics — packets, duration, size |
+| `get_protocol_hierarchy` | Full protocol distribution breakdown |
+| `get_io_stats` | Traffic volume over time |
+
+### 🤝 Conversations
+| Tool | Description |
+|------|-------------|
+| `get_ip_conversations` | All IP-to-IP communication pairs |
+| `get_tcp_conversations` | TCP connections with port info |
+| `get_udp_conversations` | UDP communications |
+
+### 🌐 Protocol Analysis
+| Tool | Description |
+|------|-------------|
+| `get_http_requests/responses` | Full web traffic |
+| `get_dns_queries/responses` | DNS lookups and answers |
+| `get_ftp_commands/responses` | FTP operations |
+| `get_smtp_traffic` | Email traffic |
+| `get_tls_handshakes` | SSL/TLS connections |
+
+### 🚨 Detection
+| Tool | Description |
+|------|-------------|
+| `detect_port_scan` | Port scanning / reconnaissance |
+| `get_credentials` | Cleartext credential exposure |
+| `get_suspicious_ports` | Non-standard port traffic |
+| `get_expert_info` | Wireshark expert warnings |
+
+### 🔬 Deep Analysis
+| Tool | Description |
+|------|-------------|
+| `filter_packets` | Custom Wireshark display filters |
+| `follow_stream` | Reconstruct TCP/UDP sessions |
+| `extract_fields` | Extract specific packet fields |
+| `search_payload` | Search packet contents |
+
+---
+
+## 💬 CLI Commands
+
+When running in CLI mode, you can use slash commands at any time:
 
 | Command | Description |
 |---------|-------------|
-| `/help` | Show help information |
-| `/status` | Display investigation status |
-| `/findings` | List all recorded findings |
-| `/recall N` | Load full output from step N |
-| `/model NAME` | Switch to different model |
-| `/save` | Save current session |
-| `/quit` | End investigation |
-
----
-
-## 🛠️ Available Analysis Tools
-
-The agent has access to these forensic tools:
-
-### Overview Tools
-- `get_pcap_info` - File statistics (size, packets, duration)
-- `get_protocol_hierarchy` - Protocol distribution
-- `get_io_stats` - Traffic volume over time
-
-### Conversation Analysis
-- `get_ip_conversations` - IP-to-IP communications
-- `get_tcp_conversations` - TCP connections with ports
-- `get_udp_conversations` - UDP communications
-
-### Protocol Analysis
-- `get_http_requests` / `get_http_responses` - Web traffic
-- `get_dns_queries` / `get_dns_responses` - DNS lookups
-- `get_ftp_commands` / `get_ftp_responses` - FTP operations
-- `get_smtp_traffic` - Email traffic
-- `get_tls_handshakes` - SSL/TLS connections
-
-### Detection Tools
-- `get_suspicious_ports` - Non-standard port traffic
-- `get_credentials` - Cleartext credentials
-- `detect_port_scan` - Port scanning activity
-- `get_expert_info` - Wireshark warnings
-
-### Custom Analysis
-- `filter_packets` - Custom Wireshark display filters
-- `extract_fields` - Extract specific packet fields
-- `follow_stream` - Reconstruct TCP/UDP sessions
-- `search_payload` - Search packet contents
-
----
-
-## 📁 Project Structure
-
-```
-├── agent.py              # Main entry point
-├── config.yaml           # Configuration file
-├── requirements.txt      # Python dependencies
-├── .env.example          # Environment template
-│
-├── src/
-│   ├── __init__.py
-│   ├── state_manager.py  # Case file & context management
-│   ├── toolbox.py        # Tshark wrapper functions
-│   ├── llm_interface.py  # LLM provider abstraction
-│   ├── ui.py             # Rich terminal interface
-│   └── utils.py          # Helper utilities
-│
-└── cases/                # Saved investigations
-    └── case_*/
-        ├── case.json     # Case metadata & timeline
-        └── logs/         # Raw tool outputs
-```
+| `/help` | Show help |
+| `/status` | Investigation status + context usage |
+| `/findings` | All recorded security findings |
+| `/recall N` | Reload full output from step N into context |
+| `/model NAME` | Hot-swap to a different LLM |
+| `/save` | Persist current session to disk |
+| `/quit` | Save and exit |
 
 ---
 
 ## ⚙️ Configuration
 
-Edit `config.yaml` to customize:
+Everything is in `config.yaml`:
 
 ```yaml
-# Model selection
-current_model: "claude_sonnet"  # or "gpt4o", "local_llama"
+# Which model to use by default
+current_model: "claude_sonnet"   # claude_sonnet | gpt4o | local_llama
 
-# Agent behavior
+models:
+  gpt4o:
+    provider: openai
+    name: gpt-4o
+    context_window: 128000
+  claude_sonnet:
+    provider: anthropic
+    name: claude-sonnet-4-20250514
+    context_window: 200000
+  local_llama:
+    provider: vllm_api
+    api_base: http://localhost:8000/v1
+    name: meta-llama-3-70b-instruct
+
 agent:
-  mode: "co-pilot"              # autonomous | co-pilot | manual
+  mode: "co-pilot"              # co-pilot | autonomous
   max_iterations: 50
   auto_approve_safe_ops: true
 
-# Output processing
 output:
-  truncate_threshold: 100       # Lines before truncation
+  truncate_threshold: 100       # Lines before output is summarized
   save_raw_outputs: true
   cases_directory: "./cases"
 
-# UI preferences
 ui:
   theme: "cyber"
   show_context_meter: true
@@ -215,78 +246,117 @@ ui:
 
 ---
 
-## 📊 Example Session
+## 📁 Project Structure
 
 ```
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃          PCAP FORENSICS - Autonomous Analysis Agent              ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-📁 PCAP File: incident_capture.pcap
-🔖 Case ID: case_incident_20231027_100000
-🤖 Model: claude-sonnet-4-20250514 (anthropic)
-
-> [Agent]: Analyzing protocol distribution...
-> [Tool]: get_protocol_hierarchy()
-
-⟨ Tool Output ⟩
-Protocol hierarchy: 90% TCP, 85% FTP, 5% HTTP
-
-> [Agent]: High FTP traffic detected. Investigating...
-
-💭 "Unusual volume of FTP suggests possible data exfiltration"
-
-> [Agent]: Found 500MB transfer from 192.168.1.105 to 10.0.0.5
-> [Agent]: Checking for brute force indicators...
-
-🔴 [HIGH] 5000+ failed FTP login attempts detected
-
-═══ FINAL INVESTIGATION REPORT ═══
-
-**Attack Type**: FTP Brute Force + Data Exfiltration
-**Attacker IP**: 192.168.1.105
-**Victim IP**: 10.0.0.5
-**Impact**: confidential_db_dump.zip (500MB) exfiltrated
-**Timeline**: Brute force at 10:15, successful login at 10:47
+NoFund_AI_Cursor_Opus/
+│
+├── agent.py              # CLI entry point — ForensicAgent orchestrator
+├── web_server.py         # Flask web server + SSE streaming
+├── config.yaml           # All configuration
+├── requirements.txt      # Python dependencies
+├── .env.example          # Environment variable template
+│
+├── src/
+│   ├── llm_interface.py  # Multi-provider LLM abstraction (OpenAI/Anthropic/vLLM)
+│   ├── toolbox.py        # 20+ Tshark wrapper functions
+│   ├── state_manager.py  # Case persistence, timeline, context management
+│   ├── ui.py             # Rich cyber-themed terminal interface
+│   └── utils.py          # Config loading, output processing, helpers
+│
+├── static/               # Web UI (HTML/CSS/JS)
+│   ├── index.html
+│   ├── css/styles.css
+│   └── js/app.js
+│
+└── cases/                # Saved investigations (git-ignored)
+    └── case_*/
+        ├── case.json     # Case metadata, timeline, findings
+        └── logs/         # Raw tool outputs for context recall
 ```
 
 ---
 
-## 🔒 Security Considerations
+## 🔒 Security Design
 
-- **Input Sanitization**: All Tshark commands are parameterized
-- **Filter Validation**: Display filters are validated before execution
-- **No Shell Injection**: Commands never use shell=True
-- **Local Processing**: Your PCAP data stays on your machine
-- **API Keys**: Never committed, stored in .env
+This project was built with security first:
+
+- **No shell injection** — all Tshark commands use argument arrays, never `shell=True`
+- **Filter validation** — display filters are validated before execution  
+- **Local processing** — your PCAP data never leaves your machine
+- **Parameterized commands** — all inputs are sanitized before passing to Tshark
+- **Key isolation** — API keys live in `.env`, never in code or version control
+
+---
+
+## 📊 Example Session Output
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃            PCAP FORENSICS — Autonomous Analysis Agent              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+📁 PCAP File:  incident_capture.pcap
+🔖 Case ID:    case_incident_20231027_100000  
+🤖 Model:      claude-sonnet-4-20250514 (anthropic)
+
+💭 Analyzing protocol distribution...
+→ [get_protocol_hierarchy] 90% TCP · 85% FTP · 5% HTTP
+
+💭 Unusual FTP volume detected. Checking login history...
+→ [get_ftp_commands] 5,000+ failed AUTH attempts from 192.168.1.105
+
+🔴 [HIGH] Brute force confirmed. Checking post-auth activity...
+→ [follow_stream] Found STOR confidential_db_dump.zip (500MB)
+
+═════════════════ FINAL REPORT ═════════════════
+
+Attack Type:   FTP Brute Force → Data Exfiltration
+Attacker IP:   192.168.1.105
+Victim IP:     10.0.0.5
+Timeline:      Brute force at 10:15 · Success at 10:47 · Exfil complete at 11:23
+Impact:        confidential_db_dump.zip (500MB) transferred to external IP
+IOCs:          192.168.1.105, 10.0.0.5, FTP port 21
+```
+
+---
+
+## 📦 Dependencies
+
+```
+flask / flask-cors         → Web server
+anthropic / openai         → LLM providers
+rich                       → Terminal UI
+python-dotenv              → Environment management
+pyyaml                     → Config parsing
+httpx                      → Local vLLM HTTP client
+werkzeug                   → File upload security
+```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome! Areas for improvement:
+Pull requests are welcome. Ideas for extension:
 
-- [ ] Additional detection signatures
-- [ ] More protocol parsers
-- [ ] Web UI option
-- [ ] Export to STIX/TAXII
-- [ ] Integration with threat intel feeds
+- [ ] Export findings to STIX/TAXII format
+- [ ] Threat intelligence feed integration (VirusTotal, AbuseIPDB)
+- [ ] Additional protocol parsers (Modbus, DNP3 for ICS/SCADA)
+- [ ] Docker containerization
+- [ ] Timeline visualization in web UI
 
 ---
 
 ## 📝 License
 
-MIT License - See LICENSE file
+MIT — use it, fork it, build on it.
 
 ---
 
-## 🙏 Acknowledgments
+<div align="center">
 
-- [Wireshark/Tshark](https://www.wireshark.org/) - Network analysis
-- [Rich](https://github.com/Textualize/rich) - Terminal UI
-- [OpenAI](https://openai.com/) / [Anthropic](https://anthropic.com/) - LLM APIs
+*Built as a graduation project — Post-Incident Forensic Analysis using Autonomous LLM Agents*
 
----
+**[Wireshark/Tshark](https://www.wireshark.org/) · [Rich](https://github.com/Textualize/rich) · [OpenAI](https://openai.com) · [Anthropic](https://anthropic.com)**
 
-*Built for graduation project - Post-incident Forensic Analysis using Autonomous Agents*
-
+</div>
